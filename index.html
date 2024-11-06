@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2c3e50;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            background-color: #34495e;
+            border: 2px solid #fff;
+            overflow: hidden;
+        }
+        .spaceship, .enemy, .bullet {
+            position: absolute;
+            border-radius: 50%;
+        }
+        .spaceship {
+            width: 50px;
+            height: 50px;
+            background-color: #1abc9c;
+            bottom: 10px;
+            left: 375px;
+        }
+        .enemy {
+            width: 40px;
+            height: 40px;
+            background-color: #e74c3c;
+            top: 0;
+        }
+        .bullet {
+            width: 10px;
+            height: 20px;
+            background-color: #fff;
+            bottom: 60px;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: #e74c3c;
+            display: none;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            justify-content: space-around;
+            width: 80%;
+            max-width: 300px;
+        }
+        .control-button {
+            width: 50px;
+            height: 50px;
+            background-color: #2980b9;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">Score: 0</div>
+        <div class="spaceship" id="spaceship"></div>
+        <div id="gameOver">Game Over! Reload to play again.</div>
+    </div>
+
+    <div id="controls">
+        <button class="control-button" id="moveLeft">←</button>
+        <button class="control-button" id="shoot">⚡</button>
+        <button class="control-button" id="moveRight">→</button>
+    </div>
+
+    <script>
+        const spaceship = document.getElementById('spaceship');
+        const gameContainer = document.getElementById('gameContainer');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('gameOver');
+        let score = 0;
+        let gameOver = false;
+
+        let spaceshipLeft = 375; // Initial position of the spaceship
+
+        document.getElementById('moveLeft').addEventListener('click', () => moveSpaceship(-20));
+        document.getElementById('moveRight').addEventListener('click', () => moveSpaceship(20));
+        document.getElementById('shoot').addEventListener('click', () => shootBullet());
+
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+            if (e.key === 'ArrowLeft') {
+                moveSpaceship(-20);
+            }
+            if (e.key === 'ArrowRight') {
+                moveSpaceship(20);
+            }
+            if (e.key === ' ' || e.key === 'Enter') {
+                shootBullet();
+            }
+        });
+
+        function moveSpaceship(delta) {
+            if (gameOver) return;
+
+            spaceshipLeft += delta;
+            spaceshipLeft = Math.max(0, Math.min(spaceshipLeft, gameContainer.clientWidth - spaceship.clientWidth));
+            spaceship.style.left = spaceshipLeft + 'px';
+        }
+
+        function createEnemy() {
+            const enemy = document.createElement('div');
+            enemy.classList.add('enemy');
+            enemy.style.left = Math.random() * (gameContainer.clientWidth - 40) + 'px';
+            gameContainer.appendChild(enemy);
+
+            let enemySpeed = Math.random() * 2 + 2; // Random speed between 2 and 4
+            let enemyInterval = setInterval(() => {
+                const enemyTop = parseInt(window.getComputedStyle(enemy).getPropertyValue('top'));
+
+                if (enemyTop > gameContainer.clientHeight) {
+                    clearInterval(enemyInterval);
+                    gameContainer.removeChild(enemy);
+                    if (!gameOver) {
+                        score++;
+                        scoreDisplay.textContent = `Score: ${score}`;
+                    }
+                } else if (checkCollision(spaceship, enemy)) {
+                    gameOver = true;
+                    gameOverDisplay.style.display = 'block';
+                    clearInterval(enemyInterval);
+                    gameContainer.removeChild(enemy);
+                } else {
+                    enemy.style.top = enemyTop + enemySpeed + 'px';
+                }
+            }, 20);
+        }
+
+        function shootBullet() {
+            if (gameOver) return;
+
+            const bullet = document.createElement('div');
+            bullet.classList.add('bullet');
+            bullet.style.left = spaceshipLeft + spaceship.clientWidth / 2 - 5 + 'px';
+            gameContainer.appendChild(bullet);
+
+            let bulletSpeed = 5;
+            let bulletInterval = setInterval(() => {
+                const bulletTop = parseInt(window.getComputedStyle(bullet).getPropertyValue('top'));
+
+                if (bulletTop < 0) {
+                    clearInterval(bulletInterval);
+                    gameContainer.removeChild(bullet);
+                } else {
+                    bullet.style.top = bulletTop - bulletSpeed + 'px';
+                    checkBulletCollision(bullet, bulletInterval);
+                }
+            }, 20);
+        }
+
+        function checkBulletCollision(bullet, bulletInterval) {
+            const bulletRect = bullet.getBoundingClientRect();
+            const enemies = document.querySelectorAll('.enemy');
+            enemies.forEach(enemy => {
+                const enemyRect = enemy.getBoundingClientRect();
+
+                if (
+                    bulletRect.left < enemyRect.right &&
+                    bulletRect.right > enemyRect.left &&
+                    bulletRect.top < enemyRect.bottom &&
+                    bulletRect.bottom > enemyRect.top
+                ) {
+                    clearInterval(bulletInterval);
+                    gameContainer.removeChild(bullet);
+                    gameContainer.removeChild(enemy);
+                    score += 2;
+                    scoreDisplay.textContent = `Score: ${score}`;
+                }
+            });
+        }
+
+        function checkCollision(player, enemy) {
+            const playerRect = player.getBoundingClientRect();
+            const enemyRect = enemy.getBoundingClientRect();
+
+            return !(playerRect.right < enemyRect.left || 
+                     playerRect.left > enemyRect.right || 
+                     playerRect.bottom < enemyRect.top || 
+                     playerRect.top > enemyRect.bottom);
+        }
+
+        function startGame() {
+            if (!gameOver) {
+                createEnemy();
+                setTimeout(startGame, 1000); // Creates new enemy every second
+            }
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
